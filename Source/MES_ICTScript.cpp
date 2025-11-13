@@ -1,6 +1,7 @@
 #include <iostream>
 #include <windows.h>
 #include "MES_TraceAPI.h"
+#include <string>
 
 #define ERR_CHK(status, msg)\
     if (status != MES_OK)\
@@ -15,7 +16,12 @@ int main()
     std::cout << "\n=============== ICT MES Automation ===============\n";
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15); // White
     
-    // 1. Get PCB serial number
+    // 1. Get operator name
+    char operatorName[64] = "";
+    std::cout << "\nPlease enter your name (e.g. Firstname Lastname): ";
+    std::cin.getline(operatorName, 64);
+
+    // 2. Get PCB serial number
     std::string serialNum = "";
     std::string confirm = "";
 
@@ -27,7 +33,7 @@ int main()
         std::cin >> confirm;
     }
     
-    // 2. Get test result
+    // 3. Get test result
     std::string testPass = "";
     
     while (testPass != "y" && testPass != "n")
@@ -47,9 +53,14 @@ int main()
         std::cout << "Test result is: Fail";
     }
 
-    // 3. Upload result to MES
+    // 4. Find corresponding PCBInstance_ID, given barcode
+    int pcbID = 124;
+    
+
+
+    // 5. Connect to MES database
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
-    std::cout << "\n\nUploading result to MES...";
+    std::cout << "\n\nUploading result to MES...\n";
 
     MES_STATUS status = MES_OK;
     std::string connStr =
@@ -60,14 +71,34 @@ int main()
        "TrustServerCertificate=Yes;";
 
     status = MES_Connect(connStr.c_str());
-    ERR_CHK(status, "Failed to connect to database.")
+    ERR_CHK(status, "Failed to connect to database.\n");
 
+    // 6. Upload result and check status
+    StageResult result;
+    result.pcbID = pcbID;
+    result.stage = 5;
+    result.pass = true;
+    strcpy(result.opName, operatorName);
+    result.assemblyMethod = None;
+    result.elapsedTimeTicks = 0;
+
+    status = MES_AddStageResult(&result);
+    ERR_CHK(status, "Failed to add result to database.\n");
+
+    // Get PCB status
     // char pcbStatus[64] = {0};
-    // status = MES_GetPCBStatus("TEST-0001", pcbStatus);
-    // ERR_CHK(status, "Failed to get status.")
+    // status = MES_GetPCBStatus("TEST-0003", pcbStatus);
+    // ERR_CHK(status, "Failed to get status.\n")
+    // std::cout << "PCB status: ";
+    // std::cout << pcbStatus <<std::endl;
 
     MES_Disconnect();
     
-    Sleep(3000);
+
+    // 7. Clean up
+    std::cout << "\n\nScript complete. Press Enter to exit...";
+    std::cin.clear();
+    std::cin.sync();
+    std::cin.get();
     return 0;
 }

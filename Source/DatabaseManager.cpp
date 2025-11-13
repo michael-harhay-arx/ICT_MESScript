@@ -2,11 +2,26 @@
 #include "DatabaseManager.h"
 #include <iostream>
 #include <sqltypes.h>
+#include <chrono>
+#include <iomanip>
 
 DatabaseManager::DatabaseManager() {}
 
 DatabaseManager::~DatabaseManager() {
     disconnect();
+}
+
+std::string getTimestamp() {
+    auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    std::ostringstream ss;
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S.0000000");
+    return ss.str();
 }
 
 static void printSqlError(SQLSMALLINT handleType, SQLHANDLE handle)
@@ -125,28 +140,57 @@ std::string DatabaseManager::getPCBStatus(const std::string& pcbBarcode) const
 
 bool DatabaseManager::addStageResult(const StageResult& result) const 
 {
+    // Define SQL query
     SQLHSTMT hStmt;
-
     ERR_CHK(SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt), "Failed to allocate statement handle");
 
-    const char* sql = "INSERT INTO [MES].[StageResult] (PCBInstance_ID, Stage, Result, Operator, AsseblyMethod, ElapsedTimeTicks) VALUES (?, ?, ?, ?, ?, ?)";
+    const char* sql = "INSERT INTO [MES].[StageResult]"
+                      "(PCBInstance_ID, TestDatetime, Stage, Result, Operator, AssemblyMethod, ElapsedTimeTicks)"
+                      "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
     ERR_CHK(SQLPrepareA(hStmt, (SQLCHAR*)sql, SQL_NTS), "Failed to prepare SQL query");
     
+    // Bind params to query
     ERR_CHK(SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0,
-        (SQLPOINTER)&result.pcbID, 0, NULL),
+        (SQLPOINTER)&result.pcbID, 0, NULL), 
         "Failed to bind pcbID parameter");
 
-    ERR_CHK(SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0,
+    std::string datetimeStr = getTimestamp();
+    ERR_CHK(SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
+        (SQLPOINTER)datetimeStr.c_str(), 0, NULL),
+        "Failed to bind dateTime parameter");
+
+    ERR_CHK(SQLBindParameter(hStmt, 3, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0,
         (SQLPOINTER)&result.stage, 0, NULL),
         "Failed to bind stage parameter");
 
     std::string resultStr = result.pass ? "PASS" : "FAIL";
-    ERR_CHK(SQLBindParameter(hStmt, 3, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
+    ERR_CHK(SQLBindParameter(hStmt, 4, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
         (SQLPOINTER)resultStr.c_str(), 0, NULL),
         "Failed to bind result parameter");
 
-    // TODO operator, assembly method, timeticks
+    ERR_CHK(SQLBindParameter(hStmt, 5, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
+        (SQLPOINTER)&result.opName, 0, NULL),
+        "Failed to bind operator parameter");
 
+    std::string assemblyStr;
+    switch(result.assemblyMethod)
+    {
+        case 1: assemblyStr = "MANUAL"; break;
+        case 2: assemblyStr = "REFLOW"; break;
+        case 3: assemblyStr = "PNP"; break;
+        default: assemblyStr = "NULL"; break;
+    }
+
+    ERR_CHK(SQLBindParameter(hStmt, 6, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
+        (SQLPOINTER)resultStr.c_str(), 0, NULL),
+        "Failed to bind assembly method parameter");
+
+    ERR_CHK(SQLBindParameter(hStmt, 7, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0,
+        (SQLPOINTER)&result.elapsedTimeTicks, 0, NULL),
+        "Failed to bind stage parameter"); 
+
+    // Execute query
     bool success = (SQLExecute(hStmt) == SQL_SUCCESS);
 
     SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
