@@ -52,6 +52,24 @@ MES_STATUS MES_GetPCBStatus(const char* pcbBarcode, char* pcbStatus)
     }
 }
 
+MES_STATUS MES_GetPCBInstanceID(std::string serialNum, int* pcbInstanceID)
+{
+    try 
+    {
+        if (serialNum.empty() || !pcbInstanceID) 
+        {
+            return MES_INVALID_PARAM;
+        }
+
+        *pcbInstanceID = dbManager.getPCBInstanceID(serialNum);
+        return *pcbInstanceID >= 0 ? MES_OK : MES_DB_QUERY_FAILED;
+    }
+    catch (const std::exception& e) 
+    {
+        return MES_DB_QUERY_FAILED;
+    }
+}
+
 MES_STATUS MES_AddStageResult(StageResult* result)
 {
     try 

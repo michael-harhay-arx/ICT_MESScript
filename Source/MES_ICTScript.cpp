@@ -53,12 +53,7 @@ int main()
         std::cout << "Test result is: Fail";
     }
 
-    // 4. Find corresponding PCBInstance_ID, given barcode
-    int pcbID = 124;
-    
-
-
-    // 5. Connect to MES database
+    // 4. Connect to MES database
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
     std::cout << "\n\nUploading result to MES...\n";
 
@@ -73,9 +68,15 @@ int main()
     status = MES_Connect(connStr.c_str());
     ERR_CHK(status, "Failed to connect to database.\n");
 
+    // 5. Find corresponding PCBInstance_ID, given serial number
+    int pcbInstanceID = 0;
+    status = MES_GetPCBInstanceID(serialNum, &pcbInstanceID);
+    std::cout << pcbInstanceID << std::endl;
+    ERR_CHK(status, "Failed to get PCB Instance ID from provided serial number. Please ensure serial number is registered in MES database.\n");
+
     // 6. Upload result and check status
     StageResult result;
-    result.pcbID = pcbID;
+    result.pcbID = pcbInstanceID;
     result.stage = 5;
     result.pass = true;
     strcpy(result.opName, operatorName);

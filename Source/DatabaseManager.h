@@ -21,6 +21,7 @@ public:
     
     /* Station API */
     std::string getPCBStatus(const std::string& pcbBarcode) const;
+    int getPCBInstanceID(std::string serialNum) const;
     bool addStageResult(const StageResult& result) const;
 
     /* General API */

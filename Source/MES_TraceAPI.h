@@ -47,6 +47,7 @@ typedef struct StageResult {
 
 MESLIB_API MES_STATUS MES_Connect(const char* connectionString);
 MESLIB_API MES_STATUS MES_GetPCBStatus(const char* pcbBarcode, char *pcbStatus);
+MESLIB_API MES_STATUS MES_GetPCBInstanceID(std::string serialNum, int* pcbInstanceID);
 MESLIB_API MES_STATUS MES_AddStageResult(StageResult* result);
 MESLIB_API void MES_Disconnect();
 

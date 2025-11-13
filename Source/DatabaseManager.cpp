@@ -137,6 +137,70 @@ std::string DatabaseManager::getPCBStatus(const std::string& pcbBarcode) const
     return resultStr;
 }
 
+int DatabaseManager::getPCBInstanceID(std::string serialNum) const
+{
+    SQLHSTMT hStmt = nullptr;
+    int id = -1;
+    SQLRETURN ret = SQL_ERROR;
+
+    ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+    if (!SQL_SUCCEEDED(ret))
+    {
+        std::cerr << "Failed to allocate statement handle";
+        return id;
+    }
+
+    // Create SQL statement
+    const char* sql = "SELECT [ID] FROM [MES].[PCBInstance] WHERE Barcode = ?";
+    ret = SQLPrepareA(hStmt, (SQLCHAR*)sql, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+    {
+        std::cerr << "Failed to prepare SQL query";
+        return id;
+    }
+
+    // Bind serial number as param
+    ret = SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 255, 0,
+        (SQLPOINTER)serialNum.c_str(), 0, NULL);
+    if (!SQL_SUCCEEDED(ret))
+    {
+        std::cerr << "Failed to bind parameter";
+        return id;
+    }
+
+    // Execute query and fetch result
+    ret = SQLExecute(hStmt);
+    if (!SQL_SUCCEEDED(ret))
+    {
+        std::cerr << "SQLExecute failed.\n";
+        return id;
+    }
+
+    ret = SQLFetch(hStmt);
+    if (SQL_SUCCEEDED(ret))
+    {
+        SQLINTEGER pcbID = 0;
+        SQLLEN pcbIDLen = 0;
+
+        ret = SQLGetData(hStmt, 1, SQL_C_SLONG, &pcbID, sizeof(pcbID), &pcbIDLen);
+        if (SQL_SUCCEEDED(ret))
+            id = pcbID;
+        else
+            std::cerr << "Failed to get data\n";
+    }
+    else if (ret == SQL_NO_DATA)
+    {
+        std::cerr << "No record found for serial number: " << serialNum << "\n";
+    }
+    else
+    {
+        printSqlError(SQL_HANDLE_STMT, hStmt);
+    }
+
+    SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    return id;
+}
+
 
 bool DatabaseManager::addStageResult(const StageResult& result) const 
 {
